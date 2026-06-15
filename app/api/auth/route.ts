@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (password !== process.env.ADMIN_PASSWORD) {
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
   }
-  const cookieValue = createSessionCookie();
+  const cookieValue = await createSessionCookie();
   const response = NextResponse.json({ ok: true });
   response.headers.set('Set-Cookie', `tonassist_session=${cookieValue}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}`);
   return response;
