@@ -51,10 +51,10 @@ export default function LoginPage() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 -translate-y-1"
             >
-              <div className="mb-4 rounded-[6px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[13px] text-[var(--color-text-primary)]">{error}</div>
+              <div aria-live="polite" className="mb-4 rounded-[6px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[13px] text-[var(--color-text-primary)]">{error}</div>
             </TransitionChild>
           </Transition>
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading} aria-busy={loading}
             className="inline-flex w-full items-center justify-center gap-1.5 rounded-[6px] bg-[var(--color-text-primary)] text-[var(--color-bg)] px-4 py-2 text-[13px] font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-green)] disabled:opacity-50">
             {loading ? 'Entering...' : 'Enter'}
           </button>
