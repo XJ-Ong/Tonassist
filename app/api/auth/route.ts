@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
   }
   const cookieValue = await createSessionCookie();
   const response = NextResponse.json({ ok: true });
-  response.headers.set('Set-Cookie', `tonassist_session=${cookieValue}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}`);
+  const isSecure = process.env.NODE_ENV === 'production';
+  response.headers.set('Set-Cookie', `tonassist_session=${cookieValue}; Path=/; HttpOnly;${isSecure ? ' Secure;' : ''} SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}`);
   return response;
 }
