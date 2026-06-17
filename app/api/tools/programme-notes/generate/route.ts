@@ -5,6 +5,7 @@ import { sortPerformers } from '@/lib/tools/programme-notes/sort-performers';
 import { correctMetadata, qaIntroductions, draftIntroductions } from '@/lib/tools/programme-notes/groq';
 import { buildPptx } from '@/lib/tools/programme-notes/build-pptx';
 import { sanitiseKey } from '@/lib/tools/programme-notes/utils';
+import type { PhotoRecord } from '@/lib/tools/programme-notes/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       const raw = await redis.get<string>(`programme-notes:photo:${sanitiseKey(performer.name)}`);
       if (!raw) missingPhotos.push(performer.name);
       else {
-        const { base64 } = JSON.parse(raw);
+        const { base64 } = JSON.parse(raw) as PhotoRecord;
         performersWithPhotos.push({ ...performer, photoBase64: base64 });
       }
     }

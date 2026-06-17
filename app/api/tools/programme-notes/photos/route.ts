@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { redis } from '@/lib/redis';
 import { processProfilePhoto } from '@/lib/tools/programme-notes/image-process';
 import { sanitiseKey } from '@/lib/tools/programme-notes/utils';
+import type { PhotoRecord } from '@/lib/tools/programme-notes/utils';
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
     const photos = raws
       .filter((raw): raw is string => raw !== null)
       .map((raw) => {
-        const { name, base64 } = JSON.parse(raw);
+        const { name, base64 } = JSON.parse(raw) as PhotoRecord;
         return { name, base64: `data:image/jpeg;base64,${base64}` };
       });
     return Response.json({ photos });
