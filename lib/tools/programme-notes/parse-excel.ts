@@ -21,6 +21,14 @@ const REQUIRED_HEADERS = [
 
 const MAX_PERFORMERS = 200;
 
+function extractText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && 'richText' in value) {
+    return (value as { richText: { text: string }[] }).richText.map((rt) => rt.text).join('');
+  }
+  return String(value ?? '');
+}
+
 // ExcelJS type definitions expect `Buffer` but Node.js 18+ defines it as
 // `Buffer<ArrayBufferLike>` — a genuine type mismatch. `Buffer.from(ArrayBuffer)`
 // produces a valid Buffer at runtime, so this @ts-ignore is safe.
@@ -34,7 +42,7 @@ export async function parseExcel(buffer: ArrayBuffer): Promise<RawPerformer[]> {
   const headerMap = new Map<number, string>();
   const headerRow = worksheet.getRow(1);
   headerRow.eachCell((cell, colNumber) => {
-    if (colNumber > 1) headerMap.set(colNumber, String(cell.value ?? '').trim()); // Skip column 1 (timestamp — not needed)
+    if (colNumber > 1) headerMap.set(colNumber, extractText(cell.value).trim());
   });
 
   const columnIndices = new Map<string, number>();
@@ -53,15 +61,15 @@ export async function parseExcel(buffer: ArrayBuffer): Promise<RawPerformer[]> {
   const performers: RawPerformer[] = [];
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
-    const role = String(row.getCell(columnIndices.get('role')!).value ?? '').trim();
+    const role = extractText(row.getCell(columnIndices.get('role')!).value).trim();
     if (role !== 'Performer') return;
     performers.push({
-      name: String(row.getCell(columnIndices.get('name')!).value ?? '').trim(),
-      pieces: String(row.getCell(columnIndices.get('pieces')!).value ?? '').trim(),
-      composers: String(row.getCell(columnIndices.get('composers')!).value ?? '').trim(),
-      duration: Number(row.getCell(columnIndices.get('duration')!).value) || 0,
-      orderPreference: Number(row.getCell(columnIndices.get('orderPreference')!).value) || 1,
-      introduction: String(row.getCell(columnIndices.get('introduction')!).value ?? '').trim(),
+      name: extractText(row.getCell(columnIndices.get('name')!).value).trim(),
+      pieces: extractText(row.getCell(columnIndices.get('pieces')!).value).trim(),
+      composers: extractText(row.getCell(columnIndices.get('composers')!).value).trim(),
+      duration: Number(extractText(row.getCell(columnIndices.get('duration')!).value)) || 0,
+      orderPreference: Number(extractText(row.getCell(columnIndices.get('orderPreference')!).value)) || 0,
+      introduction: extractText(row.getCell(columnIndices.get('introduction')!).value).trim(),
     });
   });
 

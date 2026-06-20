@@ -29,15 +29,32 @@ function addBackground(slide: PptxGenJS.Slide, bgBase64: string) {
   slide.addImage({ data: `data:image/jpeg;base64,${bgBase64}`, x: 0, y: 0, w: '100%', h: '100%' });
 }
 
+function ordinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${day}${ordinalSuffix(day)} ${months[month - 1]} ${year}`;
+}
+
 function buildCoverPage(pptx: PptxGenJS, bg: string, edition: string, date: string, time: string, tz: string) {
   const slide = pptx.addSlide();
   addBackground(slide, bg);
 
-  slide.addShape('rect', { x: 0.3, y: 0.3, w: 3.2, h: 0.6, fill: { color: '000000', transparency: 50 }, line: { width: 0 } });
-  slide.addText(edition, { x: 0.4, y: 0.4, w: 3, h: 0.5, fontSize: 28, fontFace: 'Arial', bold: true, color: 'FFFFFF' });
+  const titleText = 'Tonicist Association';
+  const subtitleText = `${edition} Online Performance`;
 
+  slide.addShape('rect', { x: 0.3, y: 0.3, w: 5.5, h: 1.2, fill: { color: '000000', transparency: 50 }, line: { width: 0 } });
+  slide.addText(titleText, { x: 0.4, y: 0.35, w: 5.3, h: 0.6, fontSize: 32, fontFace: 'Arial', bold: true, color: 'FFFFFF' });
+  slide.addText(subtitleText, { x: 0.4, y: 0.9, w: 5.3, h: 0.5, fontSize: 22, fontFace: 'Arial', color: 'FFFFFF' });
+
+  const formattedDate = formatDate(date);
   slide.addShape('rect', { x: 1.4, y: 7.7, w: 4.7, h: 1.1, fill: { color: '000000', transparency: 50 }, line: { width: 0 } });
-  slide.addText(date, { x: 1.5, y: 7.8, w: 4.5, h: 0.4, fontSize: 20, fontFace: 'Arial', color: 'FFFFFF', align: 'center' });
+  slide.addText(formattedDate, { x: 1.5, y: 7.8, w: 4.5, h: 0.4, fontSize: 20, fontFace: 'Arial', color: 'FFFFFF', align: 'center' });
   slide.addText(`${time}  ${tz}`, { x: 1.5, y: 8.3, w: 4.5, h: 0.4, fontSize: 20, fontFace: 'Arial', color: 'FFFFFF', align: 'center' });
 }
 
