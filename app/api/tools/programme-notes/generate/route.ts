@@ -97,9 +97,17 @@ export async function POST(request: NextRequest) {
     const sorted = sortPerformers(performersWithPhotos);
 
     // Step 4: AI Correction
-    const rawStrings = [...new Set([...sorted.map((p) => p.pieces), ...sorted.map((p) => p.composers)])];
-    const correctionResult = await correctMetadata(rawStrings);
-    const corrected = sorted.map((p) => ({ ...p, pieces: correctionResult.data.get(p.pieces) ?? p.pieces, composers: correctionResult.data.get(p.composers) ?? p.composers }));
+    const uniquePairs = new Map<string, { composer: string; piece: string }>();
+    for (const p of sorted) {
+      const key = `${p.composers.trim().toLowerCase()}|${p.pieces.trim().toLowerCase()}`;
+      if (!uniquePairs.has(key)) uniquePairs.set(key, { composer: p.composers, piece: p.pieces });
+    }
+    const correctionResult = await correctMetadata([...uniquePairs.values()]);
+    const corrected = sorted.map((p) => {
+      const key = `${p.composers.trim().toLowerCase()}|${p.pieces.trim().toLowerCase()}`;
+      const correctedPair = correctionResult.data.get(key);
+      return { ...p, pieces: correctedPair?.piece ?? p.pieces, composers: correctedPair?.composer ?? p.composers };
+    });
 
     // Step 5: Intro QA
     const nonEmptyIntros = corrected.filter((p) => p.introduction !== '').map((p) => p.introduction);
