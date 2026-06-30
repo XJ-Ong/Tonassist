@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { StaffRule } from './StaffRule';
 
 const NAV_ITEMS = [{ label: 'Dashboard', href: '/dashboard' }];
-const TOOLS = [{ label: 'Programme Notes', href: '/tools/programme-notes' }];
+const TOOLS = [{ label: 'Programme Notes', href: '/dashboard/tools/programme-notes' }];
 
 export function Sidebar() {
   const pathname = usePathname();

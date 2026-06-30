@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server';
 import { redis } from '@/lib/redis';
 import { parseExcel } from '@/lib/tools/programme-notes/parse-excel';
 import { sortPerformers } from '@/lib/tools/programme-notes/sort-performers';
-import { correctMetadata, qaIntroductions, draftIntroductions } from '@/lib/tools/programme-notes/groq';
+import { correctMetadata, qaIntroductions, draftIntroductions } from '@/lib/tools/programme-notes/gemini';
 import { buildPptx } from '@/lib/tools/programme-notes/build-pptx';
 import { sanitiseKey } from '@/lib/tools/programme-notes/utils';
 import type { PhotoRecord } from '@/lib/tools/programme-notes/utils';
+import type { AiReport } from '@/types/programme-notes';
 
 interface CorrectionEntry {
   performer: string;
@@ -27,13 +28,6 @@ interface QaEntry {
 interface DraftEntry {
   performer: string;
   text: string;
-}
-
-interface GroqReport {
-  corrections: CorrectionEntry[];
-  qa: QaEntry[];
-  drafts: DraftEntry[];
-  failed: string[];
 }
 
 function splitSentences(text: string): string[] {
@@ -131,7 +125,7 @@ export async function POST(request: NextRequest) {
     const pptxBuffer = await buildPptx({ performers: corrected, backgroundBase64: bgBase64, edition, date, time, timezone });
 
     // Step 8: Build report
-    const report: GroqReport = { corrections: [], qa: [], drafts: [], failed: [] };
+    const report: AiReport = { corrections: [], qa: [], drafts: [], failed: [] };
 
     for (const p of sorted) {
       const correctedP = corrected.find((c) => c.name === p.name);
@@ -177,7 +171,7 @@ export async function POST(request: NextRequest) {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'Content-Disposition': `attachment; filename="programme-notes-${edition}.pptx"`,
     });
-    headers.set('X-Groq-Report', Buffer.from(JSON.stringify(report)).toString('base64'));
+    headers.set('X-Ai-Report', Buffer.from(JSON.stringify(report)).toString('base64'));
 
     return new Response(Uint8Array.from(pptxBuffer), { status: 200, headers });
   } catch (error) {

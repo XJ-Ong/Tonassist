@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AppShell } from '@/components/layout/AppShell';
 import { PhotoCard } from '@/components/tools/programme-notes/PhotoCard';
 
 interface Photo {
@@ -61,7 +60,7 @@ export default function AdminPage() {
   }
 
   return (
-    <AppShell>
+    <>
       <h1 className="mb-6 text-[20px] font-medium text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-playfair)' }}>
         Photo Admin
       </h1>
@@ -102,6 +101,6 @@ export default function AdminPage() {
           ))}
         </div>
       )}
-    </AppShell>
+    </>
   );
 }

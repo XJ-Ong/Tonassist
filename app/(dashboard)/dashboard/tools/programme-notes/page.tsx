@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AppShell } from '@/components/layout/AppShell';
+import type { AiReport } from '@/types/programme-notes';
 
 interface FormState {
   xlsx: File | null;
@@ -10,13 +10,6 @@ interface FormState {
   date: string;
   time: string;
   timezone: string;
-}
-
-interface GroqReport {
-  corrections: { performer: string; field: 'composer' | 'piece'; original: string; corrected: string }[];
-  qa: { performer: string; changes: { original: string; corrected: string }[] }[];
-  drafts: { performer: string; text: string }[];
-  failed: string[];
 }
 
 async function compressImage(file: File): Promise<File> {
@@ -53,7 +46,7 @@ export default function ProgrammeNotesPage() {
   const [error, setError] = useState('');
   const [missing, setMissing] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
-  const [groqReport, setGroqReport] = useState<GroqReport | null>(null);
+  const [aiReport, setAiReport] = useState<AiReport | null>(null);
 
   async function handleBackgroundChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -101,10 +94,10 @@ export default function ProgrammeNotesPage() {
       a.click();
       URL.revokeObjectURL(url);
 
-      const reportHeader = res.headers.get('X-Groq-Report');
+      const reportHeader = res.headers.get('X-Ai-Report');
       if (reportHeader) {
         const json = new TextDecoder('utf-8').decode(Uint8Array.from(atob(reportHeader), (c) => c.charCodeAt(0)));
-        setGroqReport(JSON.parse(json));
+        setAiReport(JSON.parse(json));
       }
 
       setSuccess(true);
@@ -120,97 +113,95 @@ export default function ProgrammeNotesPage() {
     setSuccess(false);
     setError('');
     setMissing([]);
-    setGroqReport(null);
+    setAiReport(null);
   }
 
   if (success) {
     return (
-      <AppShell>
-        <div className="flex flex-col items-center justify-center py-20">
-          <p className="mb-4 text-[13px] text-[var(--color-text-primary)]">Programme notes generated successfully.</p>
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="mb-4 text-[13px] text-[var(--color-text-primary)]">Programme notes generated successfully.</p>
 
-          {groqReport && (groqReport.corrections.length > 0 || groqReport.qa.length > 0 || groqReport.drafts.length > 0 || groqReport.failed.length > 0) && (
-            <div className="mb-4 w-full max-w-[520px] rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4">
-              <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">AI Processing Report</p>
+        {aiReport && (aiReport.corrections.length > 0 || aiReport.qa.length > 0 || aiReport.drafts.length > 0 || aiReport.failed.length > 0) && (
+          <div className="mb-4 w-full max-w-[520px] rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4">
+            <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">AI Processing Report</p>
 
-              {groqReport.corrections.length > 0 && (
-                <div className="mb-3">
-                  <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Corrections</p>
-                  <ul className="space-y-1">
-                    {groqReport.corrections.map((c, i) => (
-                      <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                        <span className="font-medium text-[var(--color-text-primary)]">{c.performer}</span>
-                        {' · '}
-                        <span className="text-[var(--color-text-muted)]">{c.field}:</span>
-                        {' '}
-                        <span className="line-through">{c.original}</span>
-                        {' → '}
-                        <span>{c.corrected}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            {aiReport.corrections.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Corrections</p>
+                <ul className="space-y-1">
+                  {aiReport.corrections.map((c, i) => (
+                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
+                      <span className="font-medium text-[var(--color-text-primary)]">{c.performer}</span>
+                      {' · '}
+                      <span className="text-[var(--color-text-muted)]">{c.field}:</span>
+                      {' '}
+                      <span className="line-through">{c.original}</span>
+                      {' → '}
+                      <span>{c.corrected}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-              {groqReport.qa.length > 0 && (
-                <div className="mb-3">
-                  <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Proofread Introductions</p>
-                  <ul className="space-y-2">
-                    {groqReport.qa.map((q, i) => (
-                      <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                        <span className="font-medium text-[var(--color-text-primary)]">{q.performer}</span>
-                        <ul className="mt-0.5 space-y-1">
-                          {q.changes.map((c, j) => (
-                            <li key={j} className="rounded-[4px] bg-[var(--color-bg-subtle)] p-2">
-                              {c.original && <p className="line-through text-[var(--color-text-muted)]">{c.original}</p>}
-                              {c.corrected && <p className={c.original ? 'mt-0.5' : ''}>{c.corrected}</p>}
-                            </li>
-                          ))}
-                        </ul>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            {aiReport.qa.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Proofread Introductions</p>
+                <ul className="space-y-2">
+                  {aiReport.qa.map((q, i) => (
+                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
+                      <span className="font-medium text-[var(--color-text-primary)]">{q.performer}</span>
+                      <ul className="mt-0.5 space-y-1">
+                        {q.changes.map((c, j) => (
+                          <li key={j} className="rounded-[4px] bg-[var(--color-bg-subtle)] p-2">
+                            {c.original && <p className="line-through text-[var(--color-text-muted)]">{c.original}</p>}
+                            {c.corrected && <p className={c.original ? 'mt-0.5' : ''}>{c.corrected}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-              {groqReport.drafts.length > 0 && (
-                <div className="mb-3">
-                  <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Drafted Introductions</p>
-                  <ul className="space-y-2">
-                    {groqReport.drafts.map((d, i) => (
-                      <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                        <span className="font-medium text-[var(--color-text-primary)]">{d.performer}</span>
-                        <p className="mt-0.5 rounded-[4px] bg-[var(--color-bg-subtle)] p-2">{d.text}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+            {aiReport.drafts.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Drafted Introductions</p>
+                <ul className="space-y-2">
+                  {aiReport.drafts.map((d, i) => (
+                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
+                      <span className="font-medium text-[var(--color-text-primary)]">{d.performer}</span>
+                      <p className="mt-0.5 rounded-[4px] bg-[var(--color-bg-subtle)] p-2">{d.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-              {groqReport.failed.length > 0 && (
-                <div className="mt-3 rounded-[4px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[12px] text-[var(--color-text-primary)]">
-                  Some AI steps were rate-limited and used fallback text instead.
-                </div>
-              )}
-            </div>
-          )}
+            {aiReport.failed.length > 0 && (
+              <div className="mt-3 rounded-[4px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[12px] text-[var(--color-text-primary)]">
+                Some AI steps were rate-limited and used fallback text instead.
+              </div>
+            )}
+          </div>
+        )}
 
-          <button onClick={handleStartOver}
-            className="inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] bg-transparent px-4 py-2 text-[13px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-green)]">
-            Start Over
-          </button>
-        </div>
-      </AppShell>
+        <button onClick={handleStartOver}
+          className="inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] bg-transparent px-4 py-2 text-[13px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-green)]">
+          Start Over
+        </button>
+      </div>
     );
   }
 
   return (
-    <AppShell>
+    <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-[20px] font-medium text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-playfair)' }}>
           Programme Notes Generator
         </h1>
-        <a href="/tools/programme-notes/admin"
+<a href="/dashboard/tools/programme-notes/admin"
           className="rounded-[6px] border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-subtle)]">
           Manage Performers
         </a>
@@ -275,7 +266,7 @@ export default function ProgrammeNotesPage() {
             <ul className="list-inside list-disc">
               {missing.map((name) => <li key={name}>{name}</li>)}
             </ul>
-            <p className="mt-1">Please upload these in the <a href="/tools/programme-notes/admin" className="underline">admin panel</a>.</p>
+            <p className="mt-1">Please upload these in the <a href="/dashboard/tools/programme-notes/admin" className="underline">admin panel</a>.</p>
           </div>
         )}
 
@@ -290,6 +281,6 @@ export default function ProgrammeNotesPage() {
           ) : 'Generate Programme Notes'}
         </button>
       </form>
-    </AppShell>
+    </>
   );
 }
