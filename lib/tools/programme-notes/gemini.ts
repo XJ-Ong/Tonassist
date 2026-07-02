@@ -2,7 +2,8 @@ import { redis } from '@/lib/redis';
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODEL = 'gemini-3.1-flash-lite';
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 1;
 const normalise = (s: string) => s.trim().toLowerCase();
 
 interface GeminiResponse {
@@ -22,40 +23,48 @@ export async function callGemini(
 ): Promise<string | null> {
   const { apiKey, maxOutputTokens = 4096, responseSchema } = options;
 
-  try {
-    const generationConfig: Record<string, unknown> = {
-      maxOutputTokens,
-      responseMimeType: 'application/json',
-    };
-    if (responseSchema) generationConfig.responseSchema = responseSchema;
+  const generationConfig: Record<string, unknown> = {
+    maxOutputTokens,
+    responseMimeType: 'application/json',
+  };
+  if (responseSchema) generationConfig.responseSchema = responseSchema;
 
-    const body = {
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig,
-    };
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+    generationConfig,
+  };
 
-    const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey ?? process.env.GEMINI_API_KEY ?? '',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${GEMINI_API_BASE}/${MODEL}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey ?? process.env.GEMINI_API_KEY ?? '',
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
 
-    if (!res.ok) {
-      console.error('[gemini] API request failed:', res.status, await res.text());
-      return null;
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errorText}`);
+      }
+
+      const data: GeminiResponse = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+    } catch (error) {
+      if (attempt < MAX_RETRIES) {
+        console.warn(`[gemini] Request failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying automatically...`);
+      } else {
+        console.error('[gemini] Request failed after retry:', error);
+        return null;
+      }
     }
-
-    const data: GeminiResponse = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-  } catch (error) {
-    console.error('[gemini] API call failed:', error);
-    return null;
   }
+
+  return null;
 }
 
 function safeParseArray(raw: string): string[] | null {
@@ -160,7 +169,7 @@ export async function correctMetadata(pairs: MusicPair[]): Promise<{ data: Map<s
     console.error('[gemini] Failed to parse correction response');
   }
 
-  console.warn('[gemini] Correction fallback: using original pairs for', uncached.length, 'entries');
+  console.warn('[gemini] Correction failed after retry, using original pairs for', uncached.length, 'entries');
   for (const u of uncached) {
     const key = pairKey(u.pair.composer, u.pair.piece);
     results.set(key, u.pair);
@@ -179,7 +188,7 @@ export async function qaIntroductions(introductions: string[]): Promise<{ data: 
   });
   const corrected = response ? safeParseArray(response) : null;
   if (corrected && corrected.length === introductions.length) return { data: corrected, failed: false };
-  console.warn('[gemini] QA fallback: using original introductions for', introductions.length, 'entries');
+  console.warn('[gemini] QA failed after retry, using original introductions for', introductions.length, 'entries');
   if (response) console.warn('[gemini] QA raw response (first 500 chars):', response.slice(0, 500));
   return { data: introductions, failed: true };
 }
@@ -197,7 +206,7 @@ export async function draftIntroductions(performers: { name: string; pieces: str
   if (drafts && drafts.length === performers.length) {
     return { data: drafts.map((d) => `${d} (drafted by AI)`), failed: false };
   }
-  console.warn('[gemini] Draft fallback: leaving introductions empty for', performers.length, 'performers');
+  console.warn('[gemini] Draft failed after retry, leaving introductions empty for', performers.length, 'performers');
   if (response) console.warn('[gemini] Draft raw response (first 500 chars):', response.slice(0, 500));
   return { data: performers.map(() => ''), failed: true };
 }

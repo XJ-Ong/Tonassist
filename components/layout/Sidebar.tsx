@@ -3,7 +3,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { StaffRule } from './StaffRule';
 
-const NAV_ITEMS = [{ label: 'Dashboard', href: '/dashboard' }];
+const NAV_ITEMS = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Admin Panel', href: '/dashboard/admin', activePrefix: '/dashboard/admin' },
+];
 const TOOLS = [{ label: 'Programme Notes', href: '/dashboard/tools/programme-notes' }];
 
 export function Sidebar() {
@@ -18,7 +21,7 @@ export function Sidebar() {
         <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Navigation</p>
         {NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href}
-            className={`rounded-[6px] px-3 py-1.5 text-[13px] transition-colors ${pathname === item.href ? 'bg-[var(--color-brand-green)]/10 font-medium text-[var(--color-brand-green)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)]'}`}>
+            className={`rounded-[6px] px-3 py-1.5 text-[13px] transition-colors ${pathname === item.href || (item.activePrefix && pathname.startsWith(item.activePrefix)) ? 'bg-[var(--color-brand-green)]/10 font-medium text-[var(--color-brand-green)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)]'}`}>
             {item.label}
           </Link>
         ))}

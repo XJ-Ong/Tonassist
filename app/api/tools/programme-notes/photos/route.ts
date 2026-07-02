@@ -20,8 +20,15 @@ export async function GET() {
     const photos = raws
       .filter((raw): raw is string => raw !== null)
       .map((raw) => {
-        const { name, base64 } = JSON.parse(raw) as PhotoRecord;
-        return { name, base64: `data:image/jpeg;base64,${base64}` };
+        const record = JSON.parse(raw) as PhotoRecord;
+        const created_at = record.created_at ?? null;
+        const last_updated = record.last_updated ?? null;
+        return {
+          name: record.name,
+          base64: `data:image/jpeg;base64,${record.base64}`,
+          created_at,
+          last_updated,
+        };
       });
     return Response.json({ photos });
   } catch (error) {
@@ -51,9 +58,21 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: validationError }, { status: 400 });
     }
     const buffer = Buffer.from(await photo.arrayBuffer());
-    const base64 = await processProfilePhoto(buffer);
-    await redis.set(`programme-notes:photo:${sanitiseKey(name)}`, JSON.stringify({ name, base64 }));
-    return Response.json({ name, base64: `data:image/jpeg;base64,${base64}` }, { status: 201 });
+    const processedBase64 = await processProfilePhoto(buffer);
+    const now = new Date().toISOString();
+    const record: PhotoRecord = {
+      name,
+      base64: processedBase64,
+      created_at: now,
+      last_updated: now,
+    };
+    await redis.set(`programme-notes:photo:${sanitiseKey(name)}`, JSON.stringify(record));
+    return Response.json({
+      name,
+      base64: `data:image/jpeg;base64,${processedBase64}`,
+      created_at: now,
+      last_updated: now,
+    }, { status: 201 });
   } catch (error) {
     console.error('[programme-notes:photos] POST failed:', error);
     return Response.json({ error: 'Failed to upload photo' }, { status: 500 });
@@ -73,9 +92,26 @@ export async function PUT(request: NextRequest) {
       return Response.json({ error: validationError }, { status: 400 });
     }
     const buffer = Buffer.from(await photo.arrayBuffer());
-    const base64 = await processProfilePhoto(buffer);
-    await redis.set(`programme-notes:photo:${sanitiseKey(name)}`, JSON.stringify({ name, base64 }));
-    return Response.json({ name, base64: `data:image/jpeg;base64,${base64}` });
+    const processedBase64 = await processProfilePhoto(buffer);
+
+    const existing = await redis.get(`programme-notes:photo:${sanitiseKey(name)}`);
+    const existingRecord = existing ? (JSON.parse(existing as string) as PhotoRecord) : null;
+    const created_at = existingRecord?.created_at ?? null;
+
+    const now = new Date().toISOString();
+    const record: PhotoRecord = {
+      name,
+      base64: processedBase64,
+      created_at,
+      last_updated: now,
+    };
+    await redis.set(`programme-notes:photo:${sanitiseKey(name)}`, JSON.stringify(record));
+    return Response.json({
+      name,
+      base64: `data:image/jpeg;base64,${processedBase64}`,
+      created_at,
+      last_updated: now,
+    });
   } catch (error) {
     console.error('[programme-notes:photos] PUT failed:', error);
     return Response.json({ error: 'Failed to update photo' }, { status: 500 });

@@ -33,5 +33,7 @@ export interface AiReport {
 
 export interface Photo {
   name: string;
-  base64: string;
+  base64: string; // with data:image/jpeg;base64, prefix
+  created_at: string | null;
+  last_updated: string | null;
 }

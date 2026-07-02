@@ -201,7 +201,7 @@ export default function ProgrammeNotesPage() {
         <h1 className="text-[20px] font-medium text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-playfair)' }}>
           Programme Notes Generator
         </h1>
-<a href="/dashboard/tools/programme-notes/admin"
+<a href="/dashboard/admin/performers"
           className="rounded-[6px] border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-subtle)]">
           Manage Performers
         </a>
@@ -266,7 +266,7 @@ export default function ProgrammeNotesPage() {
             <ul className="list-inside list-disc">
               {missing.map((name) => <li key={name}>{name}</li>)}
             </ul>
-            <p className="mt-1">Please upload these in the <a href="/dashboard/tools/programme-notes/admin" className="underline">admin panel</a>.</p>
+            <p className="mt-1">Please upload these in the <a href="/dashboard/admin/performers" className="underline">admin panel</a>.</p>
           </div>
         )}
 

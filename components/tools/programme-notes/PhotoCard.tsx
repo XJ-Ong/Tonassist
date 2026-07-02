@@ -2,15 +2,19 @@
 
 import { useRef, useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
+import type { Photo } from '@/types/programme-notes';
 
 interface PhotoCardProps {
   name: string;
   base64: string;
-  onUpdate: (name: string, newBase64: string) => void;
+  created_at?: string | null;
+  last_updated?: string | null;
+  onUpdate: (name: string, newBase64: string, lastUpdated: string) => void;
   onDelete: (name: string) => void;
+  onClick?: (photo: Photo) => void;
 }
 
-export function PhotoCard({ name, base64, onUpdate, onDelete }: PhotoCardProps) {
+export function PhotoCard({ name, base64, created_at, last_updated, onUpdate, onDelete, onClick }: PhotoCardProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -28,7 +32,7 @@ export function PhotoCard({ name, base64, onUpdate, onDelete }: PhotoCardProps) 
       const res = await fetch('/api/tools/programme-notes/photos', { method: 'PUT', body: fd });
       if (res.ok) {
         const data = await res.json();
-        onUpdate(name, data.base64);
+        onUpdate(name, data.base64, data.last_updated);
       } else {
         const data = await res.json();
         setError(data.error || 'Failed to update photo');
@@ -63,7 +67,7 @@ export function PhotoCard({ name, base64, onUpdate, onDelete }: PhotoCardProps) 
   return (
     <>
       <div className="rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4">
-        <img src={base64} alt={name} loading="lazy" className="mb-2 h-[120px] w-[120px] object-cover" />
+        <img src={base64} alt={name} loading="lazy" className={`mb-2 h-[120px] w-[120px] object-cover ${onClick ? 'cursor-pointer' : ''}`} onClick={() => onClick?.({ name, base64, created_at: created_at ?? null, last_updated: last_updated ?? null })} />
         <p className="mb-2 text-[13px] text-[var(--color-text-primary)]">{name}</p>
         {error && (
           <p role="alert" className="mb-2 rounded-[6px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-2 py-1 text-[11px] text-[var(--color-text-primary)]">{error}</p>
