@@ -43,9 +43,6 @@ next-env.d.ts
 # agent
 .omo/
 AGENTS.md
-DESIGN.md
-PRODUCT.md
 tonassist_spec.md
 docs/
-PLAN.md
 *.patch

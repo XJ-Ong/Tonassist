@@ -34,7 +34,7 @@ function extractText(value: unknown): string {
 // produces a valid Buffer at runtime, so this @ts-ignore is safe.
 export async function parseExcel(buffer: ArrayBuffer): Promise<RawPerformer[]> {
   const workbook = new ExcelJS.Workbook();
-  // @ts-ignore — ExcelJS Buffer type mismatch with Node.js 18+ (verified at runtime)
+  // @ts-expect-error — ExcelJS Buffer type mismatch with Node.js 18+ (verified at runtime)
   await workbook.xlsx.load(Buffer.from(buffer));
   const worksheet = workbook.worksheets[0];
   if (!worksheet) throw new Error('No worksheets found in the Excel file.');

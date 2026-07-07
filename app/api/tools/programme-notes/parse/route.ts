@@ -3,7 +3,6 @@ import { redis } from '@/lib/redis';
 import { parseExcel } from '@/lib/tools/programme-notes/parse-excel';
 import { sortPerformers } from '@/lib/tools/programme-notes/sort-performers';
 import { correctMetadata, qaIntroductions, draftIntroductions } from '@/lib/tools/programme-notes/gemini';
-import { buildPptx } from '@/lib/tools/programme-notes/build-pptx';
 import { sanitiseKey } from '@/lib/tools/programme-notes/utils';
 import type { PhotoRecord } from '@/lib/tools/programme-notes/utils';
 import type { AiReport } from '@/types/programme-notes';
@@ -119,12 +118,7 @@ export async function POST(request: NextRequest) {
       if (p.introduction === '') { p.introduction = draftResult.data[di] ?? ''; di++; }
     }
 
-    // Step 7: Build PPTX
-    const bgBuffer = Buffer.from(await backgroundFile.arrayBuffer());
-    const bgBase64 = bgBuffer.toString('base64');
-    const pptxBuffer = await buildPptx({ performers: corrected, backgroundBase64: bgBase64, edition, date, time, timezone });
-
-    // Step 8: Build report
+    // Build report
     const report: AiReport = { corrections: [], qa: [], drafts: [], failed: [] };
 
     for (const p of sorted) {
@@ -166,16 +160,18 @@ export async function POST(request: NextRequest) {
     if (qaResult.failed) report.failed.push('qa');
     if (draftResult.failed) report.failed.push('draft');
 
-    // Step 9: Return
-    const headers = new Headers({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'Content-Disposition': `attachment; filename="programme-notes-${edition}.pptx"`,
-    });
-    headers.set('X-Ai-Report', Buffer.from(JSON.stringify(report)).toString('base64'));
+    // Return performers with data:image prefix for preview
+    const performers = corrected.map((p) => ({
+      name: p.name,
+      pieces: p.pieces,
+      composers: p.composers,
+      introduction: p.introduction,
+      photoBase64: `data:image/jpeg;base64,${p.photoBase64}`,
+    }));
 
-    return new Response(Uint8Array.from(pptxBuffer), { status: 200, headers });
+    return Response.json({ performers, aiReport: report });
   } catch (error) {
-    console.error('[programme-notes:generate] Pipeline failed:', error);
+    console.error('[programme-notes:parse] Pipeline failed:', error);
     const message = error instanceof Error ? error.message : 'Unexpected server error';
     return Response.json({ error: message }, { status: 500 });
   }

@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { AiReport } from '@/types/programme-notes';
+import type { AiReport, ParsedPerformer, StylingConfig } from '@/types/programme-notes';
+import { DEFAULT_STYLING } from '@/lib/tools/programme-notes/default-styling';
+import { StylingPanel } from '@/components/tools/programme-notes/StylingPanel';
+import { SlidePreview, type PreviewMode } from '@/components/tools/programme-notes/SlidePreview';
+import { AiReportModal } from '@/components/tools/programme-notes/AiReportModal';
+
+type Step = 'form' | 'styling' | 'done';
 
 interface FormState {
   xlsx: File | null;
@@ -39,23 +45,32 @@ async function compressImage(file: File): Promise<File> {
 }
 
 export default function ProgrammeNotesPage() {
+  const [step, setStep] = useState<Step>('form');
   const [form, setForm] = useState<FormState>({
     xlsx: null, background: null, edition: '', date: '', time: '', timezone: 'UTC+8',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [missing, setMissing] = useState<string[]>([]);
-  const [success, setSuccess] = useState(false);
+  const [parsedPerformers, setParsedPerformers] = useState<ParsedPerformer[]>([]);
   const [aiReport, setAiReport] = useState<AiReport | null>(null);
+  const [styling, setStyling] = useState<StylingConfig>(DEFAULT_STYLING);
+  const [backgroundBase64, setBackgroundBase64] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('cover');
+  const [reportOpen, setReportOpen] = useState(false);
 
   async function handleBackgroundChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const compressed = await compressImage(file);
     setForm((prev) => ({ ...prev, background: compressed }));
+
+    const reader = new FileReader();
+    reader.onload = () => setBackgroundBase64(reader.result as string);
+    reader.readAsDataURL(compressed);
   }
 
-  async function generate() {
+  async function handleParse() {
     if (!form.xlsx || !form.background || !form.edition || !form.date || !form.time) {
       setError('Please fill in all fields.');
       return;
@@ -77,11 +92,46 @@ export default function ProgrammeNotesPage() {
       fd.append('time', form.time);
       fd.append('timezone', form.timezone);
 
-      const res = await fetch('/api/tools/programme-notes/generate', { method: 'POST', body: fd });
+      const res = await fetch('/api/tools/programme-notes/parse', { method: 'POST', body: fd });
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || 'Generation failed');
+        setError(data.error || 'Parse failed');
+        if (data.missing) setMissing(data.missing);
+        return;
+      }
+
+      const data = await res.json();
+      setParsedPerformers(data.performers);
+      setAiReport(data.aiReport);
+      setStep('styling');
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleBuild() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const fd = new FormData();
+      fd.append('background', form.background!);
+      fd.append('performers', JSON.stringify(parsedPerformers.map(({ photoBase64, ...rest }) => rest)));
+      fd.append('styling', JSON.stringify(styling));
+      fd.append('edition', form.edition);
+      fd.append('date', form.date);
+      fd.append('time', form.time);
+      fd.append('timezone', form.timezone);
+      fd.append('aiReport', JSON.stringify(aiReport));
+
+      const res = await fetch('/api/tools/programme-notes/build', { method: 'POST', body: fd });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Build failed');
         if (data.missing) setMissing(data.missing);
         return;
       }
@@ -94,13 +144,7 @@ export default function ProgrammeNotesPage() {
       a.click();
       URL.revokeObjectURL(url);
 
-      const reportHeader = res.headers.get('X-Ai-Report');
-      if (reportHeader) {
-        const json = new TextDecoder('utf-8').decode(Uint8Array.from(atob(reportHeader), (c) => c.charCodeAt(0)));
-        setAiReport(JSON.parse(json));
-      }
-
-      setSuccess(true);
+      setStep('done');
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -109,83 +153,19 @@ export default function ProgrammeNotesPage() {
   }
 
   function handleStartOver() {
+    setStep('form');
     setForm({ xlsx: null, background: null, edition: '', date: '', time: '', timezone: 'UTC+8' });
-    setSuccess(false);
+    setParsedPerformers([]);
+    setStyling(DEFAULT_STYLING);
     setError('');
     setMissing([]);
     setAiReport(null);
   }
 
-  if (success) {
+  if (step === 'done') {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="mb-4 text-[13px] text-[var(--color-text-primary)]">Programme notes generated successfully.</p>
-
-        {aiReport && (aiReport.corrections.length > 0 || aiReport.qa.length > 0 || aiReport.drafts.length > 0 || aiReport.failed.length > 0) && (
-          <div className="mb-4 w-full max-w-[520px] rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4">
-            <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">AI Processing Report</p>
-
-            {aiReport.corrections.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Corrections</p>
-                <ul className="space-y-1">
-                  {aiReport.corrections.map((c, i) => (
-                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                      <span className="font-medium text-[var(--color-text-primary)]">{c.performer}</span>
-                      {' · '}
-                      <span className="text-[var(--color-text-muted)]">{c.field}:</span>
-                      {' '}
-                      <span className="line-through">{c.original}</span>
-                      {' → '}
-                      <span>{c.corrected}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {aiReport.qa.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Proofread Introductions</p>
-                <ul className="space-y-2">
-                  {aiReport.qa.map((q, i) => (
-                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                      <span className="font-medium text-[var(--color-text-primary)]">{q.performer}</span>
-                      <ul className="mt-0.5 space-y-1">
-                        {q.changes.map((c, j) => (
-                          <li key={j} className="rounded-[4px] bg-[var(--color-bg-subtle)] p-2">
-                            {c.original && <p className="line-through text-[var(--color-text-muted)]">{c.original}</p>}
-                            {c.corrected && <p className={c.original ? 'mt-0.5' : ''}>{c.corrected}</p>}
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {aiReport.drafts.length > 0 && (
-              <div className="mb-3">
-                <p className="mb-1 text-[13px] font-medium text-[var(--color-text-primary)]">Drafted Introductions</p>
-                <ul className="space-y-2">
-                  {aiReport.drafts.map((d, i) => (
-                    <li key={i} className="text-[12px] text-[var(--color-text-secondary)]">
-                      <span className="font-medium text-[var(--color-text-primary)]">{d.performer}</span>
-                      <p className="mt-0.5 rounded-[4px] bg-[var(--color-bg-subtle)] p-2">{d.text}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {aiReport.failed.length > 0 && (
-              <div className="mt-3 rounded-[4px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[12px] text-[var(--color-text-primary)]">
-                Some AI steps were rate-limited and used fallback text instead.
-              </div>
-            )}
-          </div>
-        )}
 
         <button onClick={handleStartOver}
           className="inline-flex items-center gap-1.5 rounded-[6px] border border-[var(--color-border)] bg-transparent px-4 py-2 text-[13px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-green)]">
@@ -195,18 +175,80 @@ export default function ProgrammeNotesPage() {
     );
   }
 
+  if (step === 'styling') {
+    return (
+      <>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-[20px] font-medium text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-playfair)' }}>
+            Programme Notes Generator
+          </h1>
+          <div className="flex items-center gap-2">
+            {aiReport && (aiReport.corrections.length > 0 || aiReport.qa.length > 0 || aiReport.drafts.length > 0 || aiReport.failed.length > 0) && (
+              <button onClick={() => setReportOpen(true)}
+                className="rounded-[6px] border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-subtle)]">
+                View AI Processing Report
+              </button>
+            )}
+            <button onClick={handleStartOver}
+              className="rounded-[6px] border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-subtle)]">
+              Start Over
+            </button>
+          </div>
+        </div>
+        <AiReportModal open={reportOpen} onClose={() => setReportOpen(false)} aiReport={aiReport} />
+
+        <div className="flex gap-6 items-start">
+          <div className="w-[320px] shrink-0 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+            <StylingPanel styling={styling} onChange={setStyling} activeSection={previewMode} />
+          </div>
+          <div className="flex-1">
+            <SlidePreview performers={parsedPerformers} styling={styling} backgroundBase64={backgroundBase64} mode={previewMode} onModeChange={setPreviewMode} edition={form.edition} date={form.date} time={form.time} timezone={form.timezone} />
+          </div>
+        </div>
+
+        {error && (
+          <div role="alert" className="mt-4 rounded-[6px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[13px] text-[var(--color-text-primary)]">
+            {error}
+          </div>
+        )}
+
+        {missing.length > 0 && (
+          <div role="alert" className="mt-4 rounded-[6px] border-l-2 border-[var(--color-brand-red)] bg-[var(--color-brand-red)]/10 px-3 py-2 text-[13px] text-[var(--color-text-primary)]">
+            <p className="mb-1 font-medium">Missing profile photos for:</p>
+            <ul className="list-inside list-disc">
+              {missing.map((name) => <li key={name}>{name}</li>)}
+            </ul>
+            <p className="mt-1">Please upload these in the <a href="/dashboard/admin/performers" className="underline">admin panel</a>.</p>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <button onClick={handleBuild} disabled={loading} aria-busy={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-[6px] bg-[var(--color-text-primary)] text-[var(--color-bg)] px-4 py-2 text-[13px] font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-green)] disabled:opacity-50">
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                Building…
+              </>
+            ) : 'Build Final PPTX'}
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-[20px] font-medium text-[var(--color-text-primary)]" style={{ fontFamily: 'var(--font-playfair)' }}>
           Programme Notes Generator
         </h1>
-<a href="/dashboard/admin/performers"
+        <a href="/dashboard/admin/performers"
           className="rounded-[6px] border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-subtle)]">
           Manage Performers
         </a>
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); generate(); }} className="flex flex-col gap-4">
+      <form onSubmit={(e) => { e.preventDefault(); handleParse(); }} className="flex flex-col gap-4">
         {/* XLSX upload */}
         <div>
           <label htmlFor="xlsx-upload" className="mb-1 block text-[13px] text-[var(--color-text-secondary)]">Google Form Responses (.xlsx)</label>
@@ -276,9 +318,9 @@ export default function ProgrammeNotesPage() {
           {loading ? (
             <>
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-              Generating…
+              Parsing…
             </>
-          ) : 'Generate Programme Notes'}
+          ) : 'Parse & Preview'}
         </button>
       </form>
     </>

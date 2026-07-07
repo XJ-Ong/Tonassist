@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ['jimp', 'exceljs', 'pptxgenjs'],
+  serverExternalPackages: ['jimp', 'exceljs', 'pptxgenjs', 'canvas'],
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production';
     return [
@@ -17,9 +17,9 @@ const config: NextConfig = {
             value: [
               "default-src 'self'",
               `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob:",
-              "font-src 'self'",
+              "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self'",
               "frame-ancestors 'none'",
             ].join('; '),

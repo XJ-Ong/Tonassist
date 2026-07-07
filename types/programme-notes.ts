@@ -37,3 +37,36 @@ export interface Photo {
   created_at: string | null;
   last_updated: string | null;
 }
+
+export interface TextStyle {
+  fontFamily: string;
+  fontSize: number;
+  color: string; // hex, no '#', matches pptxgenjs convention
+}
+
+export interface StylingConfig {
+  cover: {
+    title: TextStyle;
+    subtitle: TextStyle;
+    date: TextStyle;
+    time: TextStyle;
+  };
+  performanceOrder: {
+    name: TextStyle;
+    composerPiece: TextStyle;
+  };
+  individual: {
+    name: TextStyle;
+    composer: TextStyle;
+    piece: TextStyle;
+    introduction: TextStyle;
+  };
+}
+
+export interface ParsedPerformer {
+  name: string;
+  pieces: string;
+  composers: string;
+  introduction: string;
+  photoBase64: string; // data URI, Step 1/2 only — stripped before /build
+}

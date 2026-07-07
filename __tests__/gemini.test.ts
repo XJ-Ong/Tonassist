@@ -5,7 +5,6 @@ import { callGemini } from '@/lib/tools/programme-notes/gemini';
 vi.hoisted(() => {
   process.env.ADMIN_PASSWORD = 'test-admin';
   process.env.SESSION_SECRET = 'test-session-secret';
-  process.env.GROQ_API_KEY = 'test-groq-key';
   process.env.UPSTASH_REDIS_REST_URL = 'https://test-redis.upstash.io';
   process.env.UPSTASH_REDIS_REST_TOKEN = 'test-redis-token';
   process.env.GEMINI_API_KEY = 'test-api-key';

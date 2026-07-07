@@ -48,7 +48,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
                     {title}
                   </DialogTitle>
                 )}
-                <div className="mt-4">{children}</div>
+                <div className="mt-4 flex flex-1 flex-col overflow-hidden">{children}</div>
               </DialogPanel>
             </TransitionChild>
           </div>
